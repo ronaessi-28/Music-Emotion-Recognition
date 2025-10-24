@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart, Bar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import type { PredictionResult } from "@/pages/Index";
 
 interface VisualizationsProps {
@@ -17,36 +18,58 @@ export const Visualizations = ({ result }: VisualizationsProps) => {
 
   const maxValue = Math.max(...emotionDistribution.map(e => e.value));
 
+  const radarData = result.features ? [
+    { feature: "Tempo", value: ((result.features.tempo || 0) / 200) * 100 },
+    { feature: "Energy", value: (result.features.energy || 0) * 100 },
+    { feature: "Valence", value: (result.features.valence || 0) * 100 },
+  ] : [];
+
   return (
     <Card className="p-8">
       <h3 className="text-2xl font-bold mb-6">Analysis Details</h3>
       
       <Tabs defaultValue="distribution" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="distribution">Emotion Distribution</TabsTrigger>
-          <TabsTrigger value="features">Audio Features</TabsTrigger>
+        <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsTrigger value="distribution">Distribution</TabsTrigger>
+          <TabsTrigger value="features">Features</TabsTrigger>
+          <TabsTrigger value="radar">Radar</TabsTrigger>
         </TabsList>
 
         <TabsContent value="distribution" className="space-y-4">
           <p className="text-muted-foreground mb-4">
             Probability distribution across all emotion categories
           </p>
-          {emotionDistribution.map((item) => (
-            <div key={item.emotion} className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="font-medium">{item.emotion}</span>
-                <span className="text-muted-foreground">
-                  {(item.value * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-500"
-                  style={{ width: `${(item.value / maxValue) * 100}%` }}
-                />
-              </div>
-            </div>
-          ))}
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={emotionDistribution}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+              <XAxis dataKey="emotion" className="text-sm" />
+              <YAxis className="text-sm" />
+              <Tooltip 
+                contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                formatter={(value: number) => `${(value * 100).toFixed(1)}%`}
+              />
+              <Legend />
+              <Bar dataKey="value" fill="hsl(var(--primary))" name="Confidence" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </TabsContent>
+
+        <TabsContent value="radar" className="space-y-4">
+          <p className="text-muted-foreground mb-4">
+            Normalized audio feature comparison
+          </p>
+          <ResponsiveContainer width="100%" height={400}>
+            <RadarChart data={radarData}>
+              <PolarGrid className="stroke-muted" />
+              <PolarAngleAxis dataKey="feature" className="text-sm" />
+              <PolarRadiusAxis angle={90} domain={[0, 100]} />
+              <Radar name="Features" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.6} />
+              <Tooltip 
+                contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
+                formatter={(value: number) => `${value.toFixed(1)}%`}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
         </TabsContent>
 
         <TabsContent value="features" className="space-y-6">

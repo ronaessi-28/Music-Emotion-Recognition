@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Music } from "lucide-react";
 import { FileUpload } from "@/components/FileUpload";
 import { EmotionResults } from "@/components/EmotionResults";
 import { Visualizations } from "@/components/Visualizations";
+import { AudioPlayer } from "@/components/AudioPlayer";
+import { AnalysisHistory } from "@/components/AnalysisHistory";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export interface PredictionResult {
   emotion: "Happy" | "Sad" | "Calm" | "Energetic";
@@ -15,19 +18,46 @@ export interface PredictionResult {
   };
 }
 
+interface HistoryItem {
+  id: string;
+  fileName: string;
+  result: PredictionResult;
+  timestamp: number;
+}
+
 const Index = () => {
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  useEffect(() => {
+    const savedHistory = localStorage.getItem("musicEmotionHistory");
+    if (savedHistory) {
+      setHistory(JSON.parse(savedHistory));
+    }
+  }, []);
+
+  const saveToHistory = (file: File, predictionResult: PredictionResult) => {
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      fileName: file.name,
+      result: predictionResult,
+      timestamp: Date.now(),
+    };
+    const updatedHistory = [newItem, ...history].slice(0, 10);
+    setHistory(updatedHistory);
+    localStorage.setItem("musicEmotionHistory", JSON.stringify(updatedHistory));
+  };
 
   const handleFileUpload = async (file: File) => {
     setIsLoading(true);
+    setCurrentFile(file);
     
-    // Prepare form data
     const formData = new FormData();
     formData.append("audio", file);
 
     try {
-      // Replace with your actual Python backend URL
       const API_URL = process.env.VITE_API_URL || "http://localhost:5000/api/predict";
       
       const response = await fetch(API_URL, {
@@ -41,22 +71,34 @@ const Index = () => {
 
       const data = await response.json();
       setResult(data);
+      saveToHistory(file, data);
     } catch (error) {
       console.error("Error predicting emotion:", error);
-      // For demo purposes, show mock data when backend is not available
       const mockEmotions: Array<"Happy" | "Sad" | "Calm" | "Energetic"> = ["Happy", "Sad", "Calm", "Energetic"];
-      setResult({
+      const mockResult = {
         emotion: mockEmotions[Math.floor(Math.random() * mockEmotions.length)],
-        confidence: Math.random() * 0.3 + 0.7, // 70-100%
+        confidence: Math.random() * 0.3 + 0.7,
         features: {
           tempo: Math.random() * 100 + 80,
           energy: Math.random(),
           valence: Math.random(),
         },
-      });
+      };
+      setResult(mockResult);
+      saveToHistory(file, mockResult);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleHistorySelect = (item: HistoryItem) => {
+    setResult(item.result);
+    setCurrentFile(null);
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+    localStorage.removeItem("musicEmotionHistory");
   };
 
   return (
@@ -64,17 +106,22 @@ const Index = () => {
       {/* Hero Section */}
       <header className="border-b border-border bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10">
         <div className="container mx-auto px-4 py-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-3 rounded-xl bg-primary/20">
-              <Music className="h-8 w-8 text-primary" />
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 rounded-xl bg-primary/20">
+                  <Music className="h-8 w-8 text-primary" />
+                </div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  Music Emotion Recognition
+                </h1>
+              </div>
+              <p className="text-muted-foreground text-lg">
+                Analyze the emotional content of your music using advanced AI
+              </p>
             </div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Music Emotion Recognition
-            </h1>
+            <ThemeToggle />
           </div>
-          <p className="text-muted-foreground text-lg">
-            Analyze the emotional content of your music using advanced AI
-          </p>
         </div>
       </header>
 
@@ -86,9 +133,17 @@ const Index = () => {
             <FileUpload onFileSelect={handleFileUpload} isLoading={isLoading} />
           </Card>
 
+          {/* History Section */}
+          <AnalysisHistory
+            history={history}
+            onSelect={handleHistorySelect}
+            onClear={handleClearHistory}
+          />
+
           {/* Results Section */}
           {result && (
             <>
+              {currentFile && <AudioPlayer audioFile={currentFile} />}
               <EmotionResults result={result} />
               <Visualizations result={result} />
             </>
