@@ -7,6 +7,7 @@ import { Visualizations } from "@/components/Visualizations";
 import { AudioPlayer } from "@/components/AudioPlayer";
 import { AnalysisHistory } from "@/components/AnalysisHistory";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ExportPDF } from "@/components/ExportPDF";
 
 export interface PredictionResult {
   emotion: "Happy" | "Sad" | "Calm" | "Energetic";
@@ -144,8 +145,15 @@ const Index = () => {
           {result && (
             <>
               {currentFile && <AudioPlayer audioFile={currentFile} />}
-              <EmotionResults result={result} />
-              <Visualizations result={result} />
+              
+              <div className="flex justify-end">
+                <ExportPDF fileName={currentFile?.name || "analysis"} />
+              </div>
+
+              <div id="analysis-results" className="space-y-8">
+                <EmotionResults result={result} />
+                <Visualizations result={result} />
+              </div>
             </>
           )}
 
